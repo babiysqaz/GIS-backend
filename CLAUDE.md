@@ -5,7 +5,7 @@
 提供 RESTful API 給前端，管理圖層設定資料（CRUD）與使用者認證（JWT）。
 地圖渲染由前端直接透過 ArcGIS JS API 完成，後端**不需要**代理 ArcGIS 請求。
 
-**Repo:** `gis-platform-backend`
+**Repo:** `https://github.com/babiysqaz/GIS-backend`
 **API 前綴:** `/api/v1`
 **Python 版本:** 3.11+
 
