@@ -20,7 +20,8 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is inactive"
         )
-    access_token = auth_service.create_access_token({"sub": str(user.id)})
+    payload = {"sub": str(user.id), "role": user.role.value}
+    access_token = auth_service.create_access_token(payload)
     refresh_token = auth_service.create_refresh_token({"sub": str(user.id)})
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
@@ -31,6 +32,7 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     user = await db.get(User, user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Inactive or not found")
-    access_token = auth_service.create_access_token({"sub": str(user.id)})
+    payload = {"sub": str(user.id), "role": user.role.value}
+    access_token = auth_service.create_access_token(payload)
     new_refresh_token = auth_service.create_refresh_token({"sub": str(user.id)})
     return TokenResponse(access_token=access_token, refresh_token=new_refresh_token)
