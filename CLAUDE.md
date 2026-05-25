@@ -359,6 +359,8 @@ app.add_middleware(
 ## 開發指令
 
 ```bash
+python -m venv .venv                     # 建立虛擬環境
+.venv\Scripts\Activate.ps1               # 啟動虛擬環境
 pip install -r requirements.txt          # 安裝依賴
 uvicorn app.main:app --reload            # 啟動開發伺服器（port 8000）
 alembic upgrade head                     # 執行所有 migration
