@@ -3,8 +3,10 @@ from typing import Literal
 
 from pydantic import BaseModel, field_validator
 
+from app.schemas.common import BaseAPIModel
 
-class LayerBase(BaseModel):
+
+class LayerBase(BaseAPIModel):
     name: str
     description: str = ""
     service_url: str
@@ -25,7 +27,7 @@ class LayerCreate(LayerBase):
     pass
 
 
-class LayerUpdate(BaseModel):
+class LayerUpdate(BaseAPIModel):
     name: str | None = None
     description: str | None = None
     service_url: str | None = None
@@ -46,5 +48,3 @@ class LayerResponse(LayerBase):
     id: int
     created_at: datetime.datetime
     updated_at: datetime.datetime
-
-    model_config = {"from_attributes": True}
