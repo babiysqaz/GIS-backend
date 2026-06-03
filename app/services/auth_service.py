@@ -4,8 +4,8 @@ from typing import Any
 from fastapi import HTTPException
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.user import User
@@ -23,7 +23,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def _create_token(data: dict[str, Any], expires_delta: datetime.timedelta) -> str:
     payload = data.copy()
-    payload["exp"] = datetime.datetime.utcnow() + expires_delta
+    payload["exp"] = datetime.datetime.now(datetime.UTC) + expires_delta
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
@@ -47,7 +47,7 @@ def _decode_token(token: str) -> int:
             raise HTTPException(status_code=401, detail="Invalid token")
         return int(user_id)
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="Invalid token") from None
 
 
 def verify_access_token(token: str) -> int:

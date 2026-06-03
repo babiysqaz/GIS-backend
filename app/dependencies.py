@@ -1,9 +1,10 @@
 from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database import get_db
-from app.services.auth_service import verify_access_token
 from app.models.user import User, UserRole
+from app.services.auth_service import verify_access_token
 
 security = HTTPBearer()
 

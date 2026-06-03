@@ -1,0 +1,26 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes（未使用 import/變數）
+    "I",   # isort（import 排序）
+    "B",   # flake8-bugbear（常見 bug 模式）
+    "UP",  # pyupgrade（升級舊式語法）
+]
+ignore = [
+    "B008", # FastAPI 的 Depends() 在函式預設值中是正常用法
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

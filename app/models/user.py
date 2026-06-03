@@ -1,5 +1,5 @@
 import datetime
-import enum
+from enum import StrEnum
 
 from sqlalchemy import Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
 
-class UserRole(str, enum.Enum):
+class UserRole(StrEnum):
     ADMIN = "admin"
     USER = "user"
 
@@ -21,5 +21,5 @@ class User(Base):
     role: Mapped[UserRole] = mapped_column(default=UserRole.USER)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime, default=datetime.datetime.utcnow
+        DateTime(timezone=True), default=lambda: datetime.datetime.now(datetime.UTC)
     )

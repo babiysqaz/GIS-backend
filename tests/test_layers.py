@@ -237,7 +237,9 @@ async def test_create_layer_ssl_error_returns_400(
     client: AsyncClient, admin_token: str, monkeypatch
 ):
     async def fake_fetch(service_url: str):
-        raise ValueError("服務的 SSL 憑證驗證失敗，無法新增此圖層：[SSL: CERTIFICATE_VERIFY_FAILED]")
+        raise ValueError(
+            "服務的 SSL 憑證驗證失敗，無法新增此圖層：[SSL: CERTIFICATE_VERIFY_FAILED]"
+        )
 
     monkeypatch.setattr(layer_service, "_fetch_legend_from_service", fake_fetch)
 
@@ -255,7 +257,16 @@ async def test_update_layer_ssl_error_returns_400(
     client: AsyncClient, admin_token: str, monkeypatch
 ):
     async def fake_fetch_ok(service_url: str):
-        return [{"layerId": 0, "layerName": "測試圖層", "layerType": None, "minScale": None, "maxScale": None, "legend": []}]
+        return [
+            {
+                "layerId": 0,
+                "layerName": "測試圖層",
+                "layerType": None,
+                "minScale": None,
+                "maxScale": None,
+                "legend": [],
+            }
+        ]
 
     monkeypatch.setattr(layer_service, "_fetch_legend_from_service", fake_fetch_ok)
     create = await client.post(
@@ -266,7 +277,9 @@ async def test_update_layer_ssl_error_returns_400(
     layer_id = create.json()["id"]
 
     async def fake_fetch_ssl(service_url: str):
-        raise ValueError("服務的 SSL 憑證驗證失敗，無法新增此圖層：[SSL: CERTIFICATE_VERIFY_FAILED]")
+        raise ValueError(
+            "服務的 SSL 憑證驗證失敗，無法新增此圖層：[SSL: CERTIFICATE_VERIFY_FAILED]"
+        )
 
     monkeypatch.setattr(layer_service, "_fetch_legend_from_service", fake_fetch_ssl)
 
@@ -292,7 +305,11 @@ def test_strip_empty_legend_items_filters_empty_labels():
 def test_strip_empty_legend_items_all_empty_returns_empty_list():
     layers = [
         {"layerId": 0, "layerName": "World Imagery", "legend": [{"label": "", "imageData": "abc"}]},
-        {"layerId": 1, "layerName": "Low Resolution", "legend": [{"label": "  ", "imageData": "xyz"}]},
+        {
+            "layerId": 1,
+            "layerName": "Low Resolution",
+            "legend": [{"label": "  ", "imageData": "xyz"}],
+        },
     ]
     result = layer_service._strip_empty_legend_items(layers)
     assert result == []

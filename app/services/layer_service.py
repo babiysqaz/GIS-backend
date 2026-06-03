@@ -22,7 +22,7 @@ async def get_layer(db: AsyncSession, layer_id: int) -> Layer | None:
 def _build_legend_url(service_url: str) -> tuple[str, int | None]:
     """
     Build legend endpoint URL and extract layer_id.
-    
+
     Examples:
     - Input: https://...MapServer/0
       Output: (https://...MapServer/legend, 0)
@@ -31,17 +31,17 @@ def _build_legend_url(service_url: str) -> tuple[str, int | None]:
     """
     parsed = urlparse(service_url)
     path = parsed.path.rstrip("/")
-    
+
     # Try to extract layer_id from the end of path
     parts = path.split("/")
     layer_id = None
     if parts[-1].isdigit():
         layer_id = int(parts[-1])
         path = "/".join(parts[:-1])  # Remove layer_id
-    
+
     if not path.endswith("/legend"):
         path = f"{path}/legend"
-    
+
     query = dict(parse_qsl(parsed.query))
     query["f"] = "json"
     legend_url = urlunparse(parsed._replace(path=path, query=urlencode(query, doseq=True)))
@@ -133,7 +133,7 @@ async def _fetch_legend_from_map_server(service_url: str) -> list[dict]:
         )
 
     if layer_id is not None:
-        filtered = [l for l in layers if l.get("layerId") == layer_id]
+        filtered = [item for item in layers if item.get("layerId") == layer_id]
         if not filtered:
             raise ValueError(
                 f"layer_id {layer_id} not found in legend response from {legend_url}"

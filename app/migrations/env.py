@@ -6,12 +6,12 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from app.config import settings
-from app.database import Base
+import app.models.layer  # noqa: F401
 
 # import all models so autogenerate can detect them
 import app.models.user  # noqa: F401
-import app.models.layer  # noqa: F401
+from app.config import settings
+from app.database import Base
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
