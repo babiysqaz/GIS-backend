@@ -1,9 +1,27 @@
 import datetime
 from typing import Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import Field, field_validator
 
 from app.schemas.common import BaseAPIModel
+
+
+class LegendItem(BaseAPIModel):
+    label: str | None = None
+    url: str | None = None
+    image_data: str | None = None
+    content_type: str | None = None
+    height: int | None = None
+    width: int | None = None
+
+
+class LegendLayer(BaseAPIModel):
+    layer_id: int
+    layer_name: str
+    layer_type: str | None = None
+    min_scale: int | None = None
+    max_scale: int | None = None
+    legend: list[LegendItem] = Field(default_factory=list)
 
 
 class LayerBase(BaseAPIModel):
@@ -14,6 +32,7 @@ class LayerBase(BaseAPIModel):
     visible: bool = True
     opacity: float = 1.0
     sort_order: int = 0
+    legend: list[LegendLayer] | dict = Field(default_factory=list)
 
     @field_validator("opacity")
     @classmethod
@@ -35,6 +54,7 @@ class LayerUpdate(BaseAPIModel):
     visible: bool | None = None
     opacity: float | None = None
     sort_order: int | None = None
+    legend: list[LegendLayer] | dict | None = None
 
     @field_validator("opacity")
     @classmethod

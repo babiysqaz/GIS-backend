@@ -1,4 +1,5 @@
 import datetime
+import json
 
 from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -18,6 +19,16 @@ class Layer(Base):
     opacity: Mapped[float] = mapped_column(Float, default=1.0)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     renderer_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string
+
+    @property
+    def legend(self) -> list[dict] | dict:
+        if not self.renderer_json:
+            return []
+        try:
+            return json.loads(self.renderer_json)
+        except json.JSONDecodeError:
+            return []
+
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=datetime.datetime.utcnow
     )

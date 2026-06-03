@@ -23,7 +23,10 @@ async def create_layer(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    return await layer_service.create_layer(db, data)
+    try:
+        return await layer_service.create_layer(db, data)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.patch("/{layer_id}", response_model=LayerResponse)
@@ -33,7 +36,10 @@ async def update_layer(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    layer = await layer_service.update_layer(db, layer_id, data)
+    try:
+        layer = await layer_service.update_layer(db, layer_id, data)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     if not layer:
         raise HTTPException(status_code=404, detail="Layer not found")
     return layer

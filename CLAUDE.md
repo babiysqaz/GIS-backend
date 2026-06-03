@@ -378,3 +378,42 @@ pytest --cov=app tests/                  # 含覆蓋率報告
 - 禁止使用同步 SQLAlchemy session；統一用 `AsyncSession`
 - 禁止在 migration 裡 import app 模組或寫業務邏輯
 - 禁止在後端建立任何 ArcGIS 相關路由或代理邏輯（前端直連 ArcGIS）
+
+---
+
+## ArcGIS Legend 自動抓取
+
+`create_layer` 和 `update_layer` 時會自動從 ArcGIS 服務抓取 legend 資料，並存入 `renderer_json` 欄位。
+
+### Legend Endpoint 格式
+
+- **輸入：** 單層服務 URL，如 `https://...MapServer/0`
+- **自動查詢：** MapServer 層級的 legend endpoint（移除層 ID），如 `https://...MapServer/legend?f=json`
+- **回傳結構：** 包含所有層的 `layers` 陣列，但會篩選出對應層 ID 的 legend
+
+### 範例
+
+```
+POST /api/v1/layers/
+{
+  "name": "美國城市",
+  "description": "",
+  "serviceUrl": "https://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer/0",
+  "layerType": "feature",
+  "visible": true,
+  "opacity": 1,
+  "sortOrder": 0
+}
+```
+
+**內部流程：**
+1. 提取層 ID `0` 從 URL
+2. 查詢 `https://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer/legend?f=json`
+3. 篩選 `layers[*].layerId == 0`
+4. 將結果存入 `renderer_json`
+5. 回傳時透過 `LayerResponse.legend` property 自動解析
+
+### 錯誤處理
+
+- `400 Bad Request`：ArcGIS 服務無法連接或返回無效結構
+- 若層 ID 不存在於 legend 回應中，拋出 `ValueError`

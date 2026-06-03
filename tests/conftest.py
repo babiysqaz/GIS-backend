@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from app.database import Base, get_db
 from app.main import app
 from app.models.user import User, UserRole
-from app.services.auth_service import hash_password
+from app.services.auth_service import hash_password, create_access_token
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -71,18 +71,12 @@ async def normal_user(db: AsyncSession) -> User:
 
 
 @pytest_asyncio.fixture
-async def admin_token(client: AsyncClient, admin_user: User) -> str:
-    resp = await client.post(
-        "/api/v1/auth/login",
-        json={"email": "admin@example.com", "password": "adminpass"},
-    )
-    return resp.json()["access_token"]
+async def admin_token(admin_user: User) -> str:
+    payload = {"sub": str(admin_user.id), "role": admin_user.role.value}
+    return create_access_token(payload)
 
 
 @pytest_asyncio.fixture
-async def user_token(client: AsyncClient, normal_user: User) -> str:
-    resp = await client.post(
-        "/api/v1/auth/login",
-        json={"email": "user@example.com", "password": "userpass"},
-    )
-    return resp.json()["access_token"]
+async def user_token(normal_user: User) -> str:
+    payload = {"sub": str(normal_user.id), "role": normal_user.role.value}
+    return create_access_token(payload)
