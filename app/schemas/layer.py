@@ -28,7 +28,6 @@ class LayerBase(BaseAPIModel):
     name: str
     description: str = ""
     service_url: str
-    layer_type: Literal["feature", "tile"]
     visible: bool = True
     opacity: float = 1.0
     sort_order: int = 0
@@ -50,7 +49,6 @@ class LayerUpdate(BaseAPIModel):
     name: str | None = None
     description: str | None = None
     service_url: str | None = None
-    layer_type: Literal["feature", "tile"] | None = None
     visible: bool | None = None
     opacity: float | None = None
     sort_order: int | None = None
@@ -66,5 +64,6 @@ class LayerUpdate(BaseAPIModel):
 
 class LayerResponse(LayerBase):
     id: int
+    layer_type: Literal["feature", "tile"]
     created_at: datetime.datetime
     updated_at: datetime.datetime
