@@ -1,9 +1,8 @@
 import json
-import ssl
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from httpx import AsyncClient, ConnectError, HTTPError
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.layer import Layer
@@ -13,6 +12,33 @@ from app.schemas.layer import LayerCreate, LayerUpdate
 async def get_all_layers(db: AsyncSession) -> list[Layer]:
     result = await db.execute(select(Layer).order_by(Layer.sort_order))
     return list(result.scalars().all())
+
+
+async def get_layers_paginated(
+    db: AsyncSession,
+    page: int,
+    size: int,
+    search: str | None = None,
+    layer_type: str | None = None,
+    visible: bool | None = None,
+) -> tuple[list[Layer], int]:
+    stmt = select(Layer)
+    if search:
+        keyword = f"%{search}%"
+        stmt = stmt.where(
+            or_(Layer.name.ilike(keyword), Layer.description.ilike(keyword))
+        )
+    if layer_type:
+        stmt = stmt.where(Layer.layer_type == layer_type)
+    if visible is not None:
+        stmt = stmt.where(Layer.visible == visible)
+
+    count_result = await db.execute(select(func.count()).select_from(stmt.subquery()))
+    total = count_result.scalar_one()
+
+    stmt = stmt.order_by(Layer.sort_order).offset((page - 1) * size).limit(size)
+    rows = await db.execute(stmt)
+    return list(rows.scalars().all()), total
 
 
 async def get_layer(db: AsyncSession, layer_id: int) -> Layer | None:
@@ -101,26 +127,14 @@ async def _fetch_renderer_from_feature_server(service_url: str) -> dict:
 
 
 def _strip_empty_legend_items(layers: list[dict]) -> list[dict]:
-    all_items = [item for layer in layers for item in layer.get("legend", [])]
-    if not all_items:
-        return []
-
-    # Basemap placeholder pattern: multiple items all share the same imageData
-    # and have no labels (e.g. World_Imagery). Discard entirely.
-    unique_images = {item.get("imageData", "") for item in all_items}
-    all_labels_empty = all(not item.get("label", "").strip() for item in all_items)
-    if len(all_items) > 1 and len(unique_images) == 1 and all_labels_empty:
-        return []
-
-    # Keep items that have either a label or imageData.
     result = []
     for layer in layers:
-        meaningful = [
+        filtered = [
             item for item in layer.get("legend", [])
-            if item.get("label", "").strip() or item.get("imageData")
+            if item.get("label", "").strip()
         ]
-        if meaningful:
-            result.append({**layer, "legend": meaningful})
+        if filtered:
+            result.append({**layer, "legend": filtered})
     return result
 
 
@@ -201,19 +215,32 @@ async def update_layer(db: AsyncSession, layer_id: int, data: LayerUpdate) -> La
     if not layer:
         return None
     updates = data.model_dump(exclude_unset=True, exclude={"legend"})
-    service_url = updates.get("service_url", layer.service_url)
     if "service_url" in updates:
-        await _check_duplicate_service_url(db, service_url, exclude_id=layer_id)
-        updates["layer_type"] = _infer_layer_type(service_url)
-    updates["renderer_json"] = json.dumps(
-        await _fetch_legend_from_service(service_url),
-        ensure_ascii=False,
-    )
+        new_url = updates["service_url"]
+        await _check_duplicate_service_url(db, new_url, exclude_id=layer_id)
+        updates["layer_type"] = _infer_layer_type(new_url)
+        updates["renderer_json"] = json.dumps(
+            await _fetch_legend_from_service(new_url),
+            ensure_ascii=False,
+        )
     for field, value in updates.items():
         setattr(layer, field, value)
     await db.commit()
     await db.refresh(layer)
     return layer
+
+
+async def batch_update_sort_order(
+    db: AsyncSession, items: list[dict]
+) -> None:
+    ids = [item["id"] for item in items]
+    result = await db.execute(select(Layer).where(Layer.id.in_(ids)))
+    layers = {layer.id: layer for layer in result.scalars().all()}
+    for item in items:
+        layer = layers.get(item["id"])
+        if layer:
+            layer.sort_order = item["sort_order"]
+    await db.commit()
 
 
 async def delete_layer(db: AsyncSession, layer_id: int) -> None:

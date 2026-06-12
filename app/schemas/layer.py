@@ -62,6 +62,11 @@ class LayerUpdate(BaseAPIModel):
         return v
 
 
+class SortOrderItem(BaseAPIModel):
+    id: int
+    sort_order: int
+
+
 class LayerResponse(LayerBase):
     id: int
     layer_type: Literal["feature", "tile"]

@@ -26,7 +26,48 @@ async def test_list_layers_empty(client: AsyncClient, user_token: str):
         "/api/v1/layers/", headers={"Authorization": f"Bearer {user_token}"}
     )
     assert resp.status_code == 200
-    assert resp.json() == []
+    data = resp.json()
+    assert data["items"] == []
+    assert data["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_list_layers_search(
+    client: AsyncClient, user_token: str, admin_token: str, monkeypatch
+):
+    async def fake_fetch(service_url: str):
+        return []
+
+    monkeypatch.setattr(layer_service, "_fetch_legend_from_service", fake_fetch)
+
+    await client.post(
+        "/api/v1/layers/",
+        json={**LAYER_PAYLOAD, "name": "台北圖層", "service_url": "https://example.com/FeatureServer/1"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    await client.post(
+        "/api/v1/layers/",
+        json={**LAYER_PAYLOAD, "name": "高雄圖層", "service_url": "https://example.com/FeatureServer/2"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    resp = await client.get(
+        "/api/v1/layers/?search=台北",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["name"] == "台北圖層"
+
+
+@pytest.mark.asyncio
+async def test_list_all_layers_returns_list(client: AsyncClient, user_token: str):
+    resp = await client.get(
+        "/api/v1/layers/all", headers={"Authorization": f"Bearer {user_token}"}
+    )
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
 
 
 @pytest.mark.asyncio
@@ -93,19 +134,28 @@ async def test_create_layer_fetches_legend(client: AsyncClient, admin_token: str
 
 
 @pytest.mark.asyncio
-async def test_update_layer_refreshes_legend(client: AsyncClient, admin_token: str, monkeypatch):
-    fake_legend = [
+async def test_update_layer_refreshes_legend_when_url_changes(
+    client: AsyncClient, admin_token: str, monkeypatch
+):
+    """只有 service_url 變更時才重新抓取 legend。"""
+    initial_legend = [
+        {
+            "layerId": 0, "layerName": "初始圖層", "layerType": None,
+            "minScale": None, "maxScale": None, "legend": [],
+        }
+    ]
+    new_legend = [
         {
             "layerId": 0,
-            "layerName": "測試圖層",
+            "layerName": "新圖層",
             "layerType": None,
             "minScale": None,
             "maxScale": None,
             "legend": [
                 {
-                    "label": "測試",
+                    "label": "新圖例",
                     "url": None,
-                    "imageData": "fakeImageData",
+                    "imageData": "newImageData",
                     "contentType": "image/png",
                     "height": 20,
                     "width": 20,
@@ -113,9 +163,11 @@ async def test_update_layer_refreshes_legend(client: AsyncClient, admin_token: s
             ],
         }
     ]
+    call_count = {"n": 0}
 
     async def fake_fetch(service_url: str):
-        return fake_legend
+        call_count["n"] += 1
+        return new_legend if call_count["n"] > 1 else initial_legend
 
     monkeypatch.setattr(layer_service, "_fetch_legend_from_service", fake_fetch)
 
@@ -126,13 +178,25 @@ async def test_update_layer_refreshes_legend(client: AsyncClient, admin_token: s
     )
     layer_id = create.json()["id"]
 
-    resp = await client.patch(
+    # 不更新 service_url → legend 不應重新抓取
+    resp_name_only = await client.patch(
         f"/api/v1/layers/{layer_id}",
-        json={"name": "更新後的名稱"},
+        json={"name": "只改名稱"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert resp.status_code == 200
-    assert resp.json()["legend"] == fake_legend
+    assert resp_name_only.status_code == 200
+    assert call_count["n"] == 1  # 只在 create 時抓一次
+
+    # 更新 service_url → legend 重新抓取
+    new_url = "https://services.arcgis.com/example/FeatureServer/1"
+    resp_url = await client.patch(
+        f"/api/v1/layers/{layer_id}",
+        json={"service_url": new_url},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp_url.status_code == 200
+    assert call_count["n"] == 2  # 更新 URL 後多抓一次
+    assert resp_url.json()["legend"] == new_legend
 
 
 @pytest.mark.asyncio
@@ -218,7 +282,7 @@ async def test_delete_layer(client: AsyncClient, admin_token: str, user_token: s
     assert resp.status_code == 204
 
     list_resp = await client.get(
-        "/api/v1/layers/", headers={"Authorization": f"Bearer {user_token}"}
+        "/api/v1/layers/all", headers={"Authorization": f"Bearer {user_token}"}
     )
     assert list_resp.json() == []
 
@@ -230,6 +294,76 @@ async def test_delete_layer_not_found(client: AsyncClient, admin_token: str):
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_update_layer_forbidden_for_user(
+    client: AsyncClient, user_token: str, admin_token: str, monkeypatch
+):
+    async def fake_fetch(service_url: str):
+        return []
+
+    monkeypatch.setattr(layer_service, "_fetch_legend_from_service", fake_fetch)
+
+    create = await client.post(
+        "/api/v1/layers/",
+        json=LAYER_PAYLOAD,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    layer_id = create.json()["id"]
+
+    resp = await client.patch(
+        f"/api/v1/layers/{layer_id}",
+        json={"name": "不該成功"},
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_delete_layer_forbidden_for_user(
+    client: AsyncClient, user_token: str, admin_token: str, monkeypatch
+):
+    async def fake_fetch(service_url: str):
+        return []
+
+    monkeypatch.setattr(layer_service, "_fetch_legend_from_service", fake_fetch)
+
+    create = await client.post(
+        "/api/v1/layers/",
+        json=LAYER_PAYLOAD,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    layer_id = create.json()["id"]
+
+    resp = await client.delete(
+        f"/api/v1/layers/{layer_id}",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_create_layer_duplicate_service_url(
+    client: AsyncClient, admin_token: str, monkeypatch
+):
+    async def fake_fetch(service_url: str):
+        return []
+
+    monkeypatch.setattr(layer_service, "_fetch_legend_from_service", fake_fetch)
+
+    await client.post(
+        "/api/v1/layers/",
+        json=LAYER_PAYLOAD,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    resp = await client.post(
+        "/api/v1/layers/",
+        json=LAYER_PAYLOAD,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 400
+    assert "已存在" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -257,16 +391,7 @@ async def test_update_layer_ssl_error_returns_400(
     client: AsyncClient, admin_token: str, monkeypatch
 ):
     async def fake_fetch_ok(service_url: str):
-        return [
-            {
-                "layerId": 0,
-                "layerName": "測試圖層",
-                "layerType": None,
-                "minScale": None,
-                "maxScale": None,
-                "legend": [],
-            }
-        ]
+        return []
 
     monkeypatch.setattr(layer_service, "_fetch_legend_from_service", fake_fetch_ok)
     create = await client.post(
@@ -283,9 +408,11 @@ async def test_update_layer_ssl_error_returns_400(
 
     monkeypatch.setattr(layer_service, "_fetch_legend_from_service", fake_fetch_ssl)
 
+    # 更新 service_url 才會觸發 legend re-fetch，進而拋出 SSL 錯誤
+    new_url = "https://services.arcgis.com/example/FeatureServer/99"
     resp = await client.patch(
         f"/api/v1/layers/{layer_id}",
-        json={"name": "嘗試更新"},
+        json={"service_url": new_url},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 400

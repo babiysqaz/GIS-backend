@@ -131,16 +131,16 @@ async def seed_users(db: AsyncSession) -> None:
 
 
 async def seed_layers(db: AsyncSession) -> None:
-    for l in DEMO_LAYERS:
-        result = await db.execute(select(Layer).where(Layer.service_url == l["service_url"]))
+    for layer in DEMO_LAYERS:
+        result = await db.execute(select(Layer).where(Layer.service_url == layer["service_url"]))
         if result.scalar_one_or_none():
-            print(f"  [skip] layer '{l['name']}' already exists")
+            print(f"  [skip] layer '{layer['name']}' already exists")
             continue
         try:
-            await layer_service.create_layer(db, LayerCreate(**l))
-            print(f"  [add]  layer '{l['name']}'")
+            await layer_service.create_layer(db, LayerCreate(**layer))
+            print(f"  [add]  layer '{layer['name']}'")
         except ValueError as e:
-            print(f"  [warn] layer '{l['name']}': {e}")
+            print(f"  [warn] layer '{layer['name']}': {e}")
 
 
 async def main() -> None:
