@@ -419,6 +419,76 @@ async def test_update_layer_ssl_error_returns_400(
     assert "SSL" in resp.json()["detail"]
 
 
+@pytest.mark.asyncio
+async def test_batch_update_sort_order(
+    client: AsyncClient, admin_token: str, monkeypatch
+):
+    async def fake_fetch(service_url: str):
+        return []
+
+    monkeypatch.setattr(layer_service, "_fetch_legend_from_service", fake_fetch)
+
+    r1 = await client.post(
+        "/api/v1/layers/",
+        json={
+            **LAYER_PAYLOAD,
+            "name": "圖層A",
+            "service_url": "https://example.com/FeatureServer/10",
+            "sort_order": 0,
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    r2 = await client.post(
+        "/api/v1/layers/",
+        json={
+            **LAYER_PAYLOAD,
+            "name": "圖層B",
+            "service_url": "https://example.com/FeatureServer/11",
+            "sort_order": 1,
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    id1, id2 = r1.json()["id"], r2.json()["id"]
+
+    resp = await client.patch(
+        "/api/v1/layers/sort-order",
+        json=[{"id": id1, "sortOrder": 1}, {"id": id2, "sortOrder": 0}],
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 204
+
+    layers_resp = await client.get(
+        "/api/v1/layers/all", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    by_id = {layer["id"]: layer for layer in layers_resp.json()}
+    assert by_id[id1]["sortOrder"] == 1
+    assert by_id[id2]["sortOrder"] == 0
+
+
+@pytest.mark.asyncio
+async def test_batch_update_sort_order_forbidden_for_user(
+    client: AsyncClient, user_token: str, admin_token: str, monkeypatch
+):
+    async def fake_fetch(service_url: str):
+        return []
+
+    monkeypatch.setattr(layer_service, "_fetch_legend_from_service", fake_fetch)
+
+    create = await client.post(
+        "/api/v1/layers/",
+        json={**LAYER_PAYLOAD, "service_url": "https://example.com/FeatureServer/20"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    layer_id = create.json()["id"]
+
+    resp = await client.patch(
+        "/api/v1/layers/sort-order",
+        json=[{"id": layer_id, "sortOrder": 5}],
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 403
+
+
 def test_strip_empty_legend_items_filters_empty_labels():
     layers = [
         {"layerId": 0, "layerName": "World Imagery", "legend": [{"label": "", "imageData": "abc"}]},
