@@ -512,6 +512,66 @@ def test_strip_empty_legend_items_all_empty_returns_empty_list():
     assert result == []
 
 
+@pytest.mark.asyncio
+async def test_list_layers_filter_by_layer_type(
+    client: AsyncClient, user_token: str, admin_token: str, monkeypatch
+):
+    async def fake_fetch(service_url: str):
+        return []
+
+    monkeypatch.setattr(layer_service, "_fetch_legend_from_service", fake_fetch)
+
+    await client.post(
+        "/api/v1/layers/",
+        json={**LAYER_PAYLOAD, "service_url": "https://example.com/FeatureServer/50"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    await client.post(
+        "/api/v1/layers/",
+        json={**LAYER_PAYLOAD, "name": "Tile Layer", "service_url": "https://example.com/MapServer/50"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    resp = await client.get(
+        "/api/v1/layers/?layer_type=feature",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["layerType"] == "feature"
+
+
+@pytest.mark.asyncio
+async def test_list_layers_filter_by_visible(
+    client: AsyncClient, user_token: str, admin_token: str, monkeypatch
+):
+    async def fake_fetch(service_url: str):
+        return []
+
+    monkeypatch.setattr(layer_service, "_fetch_legend_from_service", fake_fetch)
+
+    await client.post(
+        "/api/v1/layers/",
+        json={**LAYER_PAYLOAD, "visible": True, "service_url": "https://example.com/FeatureServer/60"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    await client.post(
+        "/api/v1/layers/",
+        json={**LAYER_PAYLOAD, "visible": False, "name": "隱藏圖層", "service_url": "https://example.com/FeatureServer/61"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    resp = await client.get(
+        "/api/v1/layers/?visible=false",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["name"] == "隱藏圖層"
+
+
 def test_strip_empty_legend_items_keeps_meaningful_items():
     layers = [
         {
