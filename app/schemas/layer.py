@@ -30,7 +30,6 @@ class LayerBase(BaseAPIModel):
     service_url: str
     visible: bool = True
     opacity: float = 1.0
-    sort_order: int = 0
     legend: list[LegendLayer] | dict = Field(default_factory=list)
 
     @field_validator("opacity")
@@ -51,7 +50,6 @@ class LayerUpdate(BaseAPIModel):
     service_url: str | None = None
     visible: bool | None = None
     opacity: float | None = None
-    sort_order: int | None = None
     legend: list[LegendLayer] | dict | None = None
 
     @field_validator("opacity")
@@ -70,5 +68,6 @@ class SortOrderItem(BaseAPIModel):
 class LayerResponse(LayerBase):
     id: int
     layer_type: Literal["feature", "tile"]
+    sort_order: int
     created_at: datetime.datetime
     updated_at: datetime.datetime

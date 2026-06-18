@@ -47,6 +47,15 @@ def _svc(name: str) -> str:
 
 DEMO_LAYERS = [
     {
+        "name": "世界衛星影像",
+        "description": "Esri World Imagery 高解析度衛星底圖",
+        "service_url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+        "layer_type": "tile",
+        "visible": True,
+        "opacity": 1.0,
+        "sort_order": 0,
+    },
+    {
         "name": "商業表燈用電量",
         "description": "2015年表燈營業用電量空間分布",
         "service_url": _svc("01_表燈營業用_2015"),

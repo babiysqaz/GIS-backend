@@ -184,6 +184,12 @@ async def _fetch_legend_from_service(service_url: str) -> list[dict] | dict:
     return await _fetch_legend_from_map_server(service_url)
 
 
+async def _get_next_sort_order(db: AsyncSession) -> int:
+    result = await db.execute(select(func.max(Layer.sort_order)))
+    max_val = result.scalar_one_or_none()
+    return (max_val or 0) + 1
+
+
 async def _check_duplicate_service_url(
     db: AsyncSession, service_url: str, exclude_id: int | None = None
 ) -> None:
@@ -203,6 +209,7 @@ async def create_layer(db: AsyncSession, data: LayerCreate) -> Layer:
         await _fetch_legend_from_service(layer_data["service_url"]),
         ensure_ascii=False,
     )
+    layer_data["sort_order"] = await _get_next_sort_order(db)
     layer = Layer(**layer_data)
     db.add(layer)
     await db.commit()
