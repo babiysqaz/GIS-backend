@@ -6,13 +6,15 @@ from app.database import get_db
 from app.models.user import User, UserRole
 from app.services.auth_service import verify_access_token
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Not authenticated")
     user_id = verify_access_token(credentials.credentials)
     user = await db.get(User, user_id)
     if not user or not user.is_active:

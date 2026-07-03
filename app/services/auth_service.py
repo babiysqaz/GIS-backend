@@ -1,4 +1,5 @@
 import datetime
+import uuid
 from typing import Any
 
 from fastapi import HTTPException
@@ -25,6 +26,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 def _create_token(data: dict[str, Any], expires_delta: datetime.timedelta) -> str:
     payload = data.copy()
     payload["exp"] = datetime.datetime.now(datetime.UTC) + expires_delta
+    payload["jti"] = str(uuid.uuid4())
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
