@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 import app.models.layer  # noqa: F401
 
 # import all models so autogenerate can detect them
+import app.models.refresh_token  # noqa: F401
 import app.models.user  # noqa: F401
 from app.config import settings
 from app.database import Base

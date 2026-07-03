@@ -13,26 +13,24 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
     user = await auth_service.authenticate_user(db, data.email, data.password)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is inactive"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is inactive")
     payload = {"sub": str(user.id), "role": user.role.value}
     access_token = auth_service.create_access_token(payload)
     refresh_token = auth_service.create_refresh_token({"sub": str(user.id)})
+    await auth_service.store_refresh_token(db, user.id, refresh_token)
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
-    user_id = auth_service.verify_refresh_token(body.refresh_token)
+    user_id = await auth_service.consume_refresh_token(db, body.refresh_token)
     user = await db.get(User, user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Inactive or not found")
     payload = {"sub": str(user.id), "role": user.role.value}
     access_token = auth_service.create_access_token(payload)
     new_refresh_token = auth_service.create_refresh_token({"sub": str(user.id)})
+    await auth_service.store_refresh_token(db, user.id, new_refresh_token)
     return TokenResponse(access_token=access_token, refresh_token=new_refresh_token)
